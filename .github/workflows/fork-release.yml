@@ -1,0 +1,146 @@
+name: Fork Release
+
+# Run it by hand from the Actions tab. It builds the chosen flavor, signs it with the fork's own
+# keystore and publishes a GitHub release with the APK attached.
+#
+# Required repository secrets:
+#   SIGNING_KEY         base64 of the release keystore (.jks)
+#   ALIAS               key alias inside the keystore
+#   KEY_STORE_PASSWORD  keystore password
+#   KEY_PASSWORD        key password
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, for example v6.1-guard'
+        required: true
+      flavor:
+        description: 'Build flavor'
+        required: true
+        default: 'fdroid'
+        type: choice
+        options:
+          - fdroid
+          - full
+      notes:
+        description: 'Release notes (leave empty to use the last commit message)'
+        required: false
+        default: ''
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_TOOLS: '35.0.0'
+
+    steps:
+      - name: Check signing secrets
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          ALIAS: ${{ secrets.ALIAS }}
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing=""
+          for name in SIGNING_KEY ALIAS KEY_STORE_PASSWORD KEY_PASSWORD; do
+            [ -z "${!name}" ] && missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4.2.1
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools build-tools;${{ env.BUILD_TOOLS }}'
+
+      - name: Build release APK
+        run: |
+          chmod +x gradlew
+          FLAVOR="${{ github.event.inputs.flavor }}"
+          TASK="assemble${FLAVOR^}Release"
+          ./gradlew --no-daemon "$TASK"
+
+      - name: Sign APK
+        id: apk
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          ALIAS: ${{ secrets.ALIAS }}
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          FLAVOR="${{ github.event.inputs.flavor }}"
+          TAG="${{ github.event.inputs.tag }}"
+          BT="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
+          UNSIGNED="$(find app/build/outputs/apk/$FLAVOR/release -name '*.apk' | head -n1)"
+          if [ -z "$UNSIGNED" ]; then
+            echo "::error::No APK found for flavor $FLAVOR"
+            exit 1
+          fi
+
+          KEYSTORE="$RUNNER_TEMP/release.jks"
+          echo "$SIGNING_KEY" | base64 -d > "$KEYSTORE"
+
+          DEST="curbox-${TAG#v}-${FLAVOR}.apk"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign \
+            --ks "$KEYSTORE" --ks-key-alias "$ALIAS" \
+            --ks-pass env:KEY_STORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "$DEST" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" verify --print-certs "$DEST"
+          rm -f "$KEYSTORE"
+
+          sha256sum "$DEST" > "$DEST.sha256"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release notes
+        id: notes
+        env:
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          {
+            echo "body<<RELEASE_EOF"
+            if [ -n "$NOTES" ]; then
+              echo "$NOTES"
+            else
+              git log -1 --pretty=format:%B
+            fi
+            echo ""
+            echo "Built from \`${GITHUB_REF_NAME}\` at ${GITHUB_SHA::8}."
+            echo "RELEASE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          name: ${{ github.event.inputs.tag }}
+          target_commitish: ${{ github.sha }}
+          body: ${{ steps.notes.outputs.body }}
+          prerelease: ${{ github.event.inputs.prerelease }}
+          files: |
+            ${{ steps.apk.outputs.path }}
+            ${{ steps.apk.outputs.path }}.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
