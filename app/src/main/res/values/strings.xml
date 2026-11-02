@@ -1551,6 +1551,10 @@
     <string name="service_protection_channel_name">Service protection</string>
     <string name="service_protection_down_title">Curbox blockers stopped</string>
     <string name="service_protection_down_text">Tap to turn them back on so your blocks keep working.</string>
+    <string name="protection_guard_channel_name">Protection guard</string>
+    <string name="protection_guard_notification_title">Curbox protection is on</string>
+    <string name="protection_guard_notification_text">Curbox keeps its blocker switched on while protection is locked.</string>
+    <string name="change_delay_field_service_protection">Keep Curbox running</string>
 
     <!-- Tamper protection -->
     <string name="anti_uninstall_title">Tamper protection</string>

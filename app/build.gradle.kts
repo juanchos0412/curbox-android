@@ -63,7 +63,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 6
-        versionName = "6"
+        versionName = "6.1-guard"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resValue("string", "app_name", "Curbox")
 

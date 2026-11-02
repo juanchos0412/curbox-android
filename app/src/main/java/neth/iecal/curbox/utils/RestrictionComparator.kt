@@ -59,6 +59,8 @@ object RestrictionComparator {
                     !current.isWebsiteUsageTrackingEnabled || proposed.isWebsiteUsageTrackingEnabled
                 GatedSettingsField.CHANGE_DELAY ->
                     changeDelay(current.settingsChangeDelayConfig2, proposed.settingsChangeDelayConfig2)
+                GatedSettingsField.SERVICE_PROTECTION ->
+                    !current.serviceProtectionConfig.isEnabled || proposed.serviceProtectionConfig.isEnabled
             }
         } catch (e: Exception) {
             false

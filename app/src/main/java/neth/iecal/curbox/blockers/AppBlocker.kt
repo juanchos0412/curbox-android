@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.google.gson.Gson
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import neth.iecal.curbox.Constants
 import neth.iecal.curbox.R
+import neth.iecal.curbox.blockers.uihider.NodeFinder
 import neth.iecal.curbox.data.models.AppBlockerWarningScreenConfig
 import neth.iecal.curbox.data.models.AppGroupConfig
 import neth.iecal.curbox.data.models.AppUsageConfig
@@ -55,6 +57,8 @@ class AppBlocker : BaseBlocker() {
             "neth.iecal.curbox.appblocker.warning_screen_visibility"
         const val EXTRA_WARNING_SCREEN_VISIBLE = "warning_screen_visible"
         private const val TARGET_EVENTS_MASK = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+        // The second pass covers a block skipped because a global action had just run.
+        private val FOREGROUND_RECHECK_DELAYS_MS = longArrayOf(600L, 1500L)
     }
 
     private lateinit var prefs: SharedPreferences
@@ -93,8 +97,19 @@ class AppBlocker : BaseBlocker() {
 
     private val ignoredApps = mutableListOf("com.android.systemui")
 
+    // The window event for a newly opened app is not always attributed to it, for example when
+    // the app is opened from its page in Settings. Reading the real foreground app shortly after
+    // each window change catches those launches.
+    private val foregroundRecheck = Runnable { recheckRealForeground() }
+    private var isForegroundRecheckRunning = false
+
     fun doAppBlockerCheck(event: AccessibilityEvent?) {
         if (event == null || (event.eventType and TARGET_EVENTS_MASK) == 0) return
+
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !isForegroundRecheckRunning) {
+            handler.removeCallbacks(foregroundRecheck)
+            FOREGROUND_RECHECK_DELAYS_MS.forEach { handler.postDelayed(foregroundRecheck, it) }
+        }
 
         val packageName = event.packageName?.toString() ?: return
 
@@ -190,6 +205,41 @@ class AppBlocker : BaseBlocker() {
         showNextCooldownNotification()
 
         lastPackage = packageName
+    }
+
+    private fun recheckRealForeground() {
+        try {
+            val packageName = realForegroundPackage() ?: return
+            if (packageName == lastPackage) return
+            val event = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+            event.packageName = packageName
+            isForegroundRecheckRunning = true
+            try {
+                doAppBlockerCheck(event)
+            } finally {
+                isForegroundRecheckRunning = false
+                event.recycle()
+            }
+        } catch (e: Exception) {
+            Log.e("AppBlocker", "Foreground recheck failed", e)
+        }
+    }
+
+    /** The package of the focused app window, falling back to the active window. */
+    private fun realForegroundPackage(): String? {
+        val windows = try {
+            service.windows
+        } catch (_: Exception) {
+            null
+        }
+        val appWindows = windows.orEmpty().filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        val target = appWindows.firstOrNull { it.isFocused } ?: appWindows.firstOrNull()
+        val root = target?.root ?: service.rootInActiveWindow ?: return null
+        return try {
+            root.packageName?.toString()
+        } finally {
+            NodeFinder.recycle(root)
+        }
     }
 
     /**

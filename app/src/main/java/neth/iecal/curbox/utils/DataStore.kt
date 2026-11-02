@@ -443,6 +443,11 @@ class DataStoreManager(private val context: Context) {
         settingsDataStore.updateData { it.copy(serviceProtectionConfig = transform(it.serviceProtectionConfig)) }
     }
 
+    /** Turning protection off weakens it, so that goes through the settings change delay. */
+    suspend fun updateServiceProtectionEnabled(isEnabled: Boolean) {
+        updateGated(GatedSettingsField.SERVICE_PROTECTION) { isEnabled }
+    }
+
     suspend fun updateSettingsChangeDelay(
         isEnabled: Boolean,
         delayMinutes: Int,
@@ -735,6 +740,11 @@ class DataStoreManager(private val context: Context) {
                         requireTamperProtectionOff = prefs.requireTamperProtectionOff
                     ))
                 }
+                GatedSettingsField.SERVICE_PROTECTION -> settings.copy(
+                    serviceProtectionConfig = settings.serviceProtectionConfig.copy(
+                        isEnabled = gson.fromJson(valueJson, Boolean::class.java)
+                    )
+                )
             }
         }.getOrNull()
     }
@@ -761,6 +771,7 @@ class DataStoreManager(private val context: Context) {
                     requireTamperProtectionOff =
                         settings.settingsChangeDelayConfig2.requireTamperProtectionOff,
                 )
+                GatedSettingsField.SERVICE_PROTECTION -> settings.serviceProtectionConfig.isEnabled
             }
             gson.toJson(value)
         }.getOrNull()

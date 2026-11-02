@@ -43,8 +43,8 @@ open class BaseBlockingService : AccessibilityService() {
 
     private suspend fun setupProtectionOnConnect() {
         try {
-            val config = dataStoreManager.settings.first().serviceProtectionConfig
-            if (config.isEnabled) {
+            val settings = dataStoreManager.settings.first()
+            if (ServiceProtectionManager.shouldKeepAccessibilityOn(settings)) {
                 ServiceWatchdogJob.schedule(this)
                 ServiceProtectionManager.reinforceBackgroundExecution(this)
             }

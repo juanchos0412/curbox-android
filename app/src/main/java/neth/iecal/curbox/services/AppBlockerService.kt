@@ -36,6 +36,7 @@ import neth.iecal.curbox.trackers.ReelUsageTracker
 import neth.iecal.curbox.trackers.WebsiteObservation
 import neth.iecal.curbox.trackers.WebsiteUsageTracker
 import neth.iecal.curbox.ui.overlay.ReelsOverlayManager
+import neth.iecal.curbox.utils.ServiceProtectionManager
 
 @Suppress("DEPRECATION")
 class AppBlockerService : BaseBlockingService() {
@@ -80,6 +81,9 @@ class AppBlockerService : BaseBlockingService() {
     }
 
     private lateinit var crashLogger: CrashLogger
+
+    // Read in onUnbind, where there is no time to wait for the settings flow.
+    @Volatile private var keepAccessibilityOn = false
 
     fun syncDndState() {
         val autoDndActive = autoDnd.isDndRequested()
@@ -250,6 +254,36 @@ class AppBlockerService : BaseBlockingService() {
         }
 
         startBackgroundWorker()
+        watchProtectionState()
+        ProtectionGuardService.startIfNeeded(this)
+    }
+
+    private fun watchProtectionState() {
+        serviceScope.launch {
+            try {
+                dataStoreManager.settings.collect {
+                    keepAccessibilityOn = ServiceProtectionManager.shouldKeepAccessibilityOn(it)
+                }
+            } catch (t: Throwable) {
+                if (t is CancellationException) throw t
+                crashLogger.logNonFatalError(Exception(t))
+            }
+        }
+    }
+
+    /**
+     * The system unbinds the service right after its switch is turned off. While protection is
+     * locked, put the switch straight back so the system binds the service again.
+     */
+    override fun onUnbind(intent: Intent?): Boolean {
+        if (keepAccessibilityOn) {
+            try {
+                ServiceProtectionManager.restoreAccessibilityService(applicationContext)
+            } catch (t: Throwable) {
+                crashLogger.logNonFatalError(Exception(t))
+            }
+        }
+        return super.onUnbind(intent)
     }
 
     override fun onDestroy() {

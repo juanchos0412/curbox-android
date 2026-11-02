@@ -23,6 +23,7 @@ import neth.iecal.curbox.BuildConfig
 import neth.iecal.curbox.R
 import neth.iecal.curbox.hardcoded.OemAutostartIntents
 import neth.iecal.curbox.services.AppBlockerService
+import neth.iecal.curbox.services.ProtectionGuardService
 import neth.iecal.curbox.services.ServiceWatchdogJob
 import neth.iecal.curbox.utils.AntiUninstallManager
 import neth.iecal.curbox.utils.DataStoreManager
@@ -138,9 +139,10 @@ class ServiceProtectionFragment : Fragment() {
 
     private fun onMasterToggled(turnOn: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
-            dataStore.updateServiceProtectionConfig { it.copy(isEnabled = turnOn) }
+            dataStore.updateServiceProtectionEnabled(turnOn)
         }
         if (turnOn) {
+            ProtectionGuardService.start(requireContext())
             ServiceWatchdogJob.schedule(requireContext())
             ServiceProtectionManager.reinforceBackgroundExecution(requireContext())
             if (!ServiceProtectionManager.isIgnoringBatteryOptimizations(requireContext())) {
@@ -253,7 +255,7 @@ class ServiceProtectionFragment : Fragment() {
 
     private fun repairNow() {
         val context = requireContext()
-        if (ServiceProtectionManager.canSelfHeal()) {
+        if (ServiceProtectionManager.canRepairAccessibility(context)) {
             ServiceProtectionManager.healNow(context)
             Toast.makeText(context, R.string.service_protection_repair_started, Toast.LENGTH_SHORT).show()
         } else {

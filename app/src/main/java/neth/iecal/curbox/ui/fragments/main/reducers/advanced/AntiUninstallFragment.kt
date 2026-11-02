@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import neth.iecal.curbox.R
 import neth.iecal.curbox.data.models.AntiUninstallConfig
 import neth.iecal.curbox.data.models.AntiUninstallMode
+import neth.iecal.curbox.services.ProtectionGuardService
 import neth.iecal.curbox.utils.AntiUninstallManager
 import neth.iecal.curbox.utils.DataStoreManager
 import neth.iecal.curbox.utils.ServiceProtectionManager
@@ -280,6 +281,7 @@ class AntiUninstallFragment : Fragment() {
                     unlockRequestedAtMs = 0L
                 )
             }
+            ProtectionGuardService.start(requireContext())
             Toast.makeText(requireContext(), R.string.anti_uninstall_turned_on, Toast.LENGTH_SHORT).show()
         }
     }

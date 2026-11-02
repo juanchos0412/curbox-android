@@ -39,9 +39,10 @@ class ServiceWatchdogJob : JobService() {
     override fun onStartJob(params: JobParameters?): Boolean {
         scope.launch {
             try {
-                val config = DataStoreManager(applicationContext).settings.first().serviceProtectionConfig
-                if (config.isEnabled) {
-                    if (config.selfHealWithShizuku && ServiceProtectionManager.canSelfHeal()) {
+                val settings = DataStoreManager(applicationContext).settings.first()
+                if (ServiceProtectionManager.shouldKeepAccessibilityOn(settings)) {
+                    ProtectionGuardService.start(applicationContext)
+                    if (ServiceProtectionManager.canRepairAccessibility(applicationContext)) {
                         ServiceProtectionManager.healNow(applicationContext)
                     } else if (!ServiceProtectionManager.isAppBlockerEnabled(applicationContext)) {
                         postServicesDownNotification(applicationContext)

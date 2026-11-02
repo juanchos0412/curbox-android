@@ -1,5 +1,6 @@
 package neth.iecal.curbox.utils
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -10,8 +11,10 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.TextUtils
 import android.util.Log
+import android.view.accessibility.AccessibilityManager
 import kotlinx.coroutines.flow.first
 import neth.iecal.curbox.BuildConfig
+import neth.iecal.curbox.data.models.Settings as CurboxSettings
 import neth.iecal.curbox.receivers.AdminReceiver
 import neth.iecal.curbox.services.AppBlockerService
 
@@ -34,6 +37,35 @@ object ServiceProtectionManager {
     /** Shizuku is the only thing that lets us silently turn services back on, so it gates self healing. */
     fun canSelfHeal(): Boolean =
         PermissionUtils.isShizukuAvailable() && PermissionUtils.hasShizukuPermission()
+
+    /**
+     * True when Curbox can put its accessibility service back on by itself. WRITE_SECURE_SETTINGS
+     * survives reboots and needs no running Shizuku, so it is tried first.
+     */
+    fun canRepairAccessibility(context: Context): Boolean =
+        PermissionUtils.hasWriteSecureSettings(context) || canSelfHeal()
+
+    /**
+     * Whether the accessibility service must be kept on: service protection is on, or tamper
+     * protection is locked and no timed or cooldown unlock has finished.
+     */
+    fun shouldKeepAccessibilityOn(settings: CurboxSettings): Boolean {
+        val antiUninstall = settings.antiUninstallConfig2
+        val tamperLocked = BuildConfig.SUPPORTS_ANTI_UNINSTALL && antiUninstall.isEnabled &&
+            !AntiUninstallManager.isUnlockComplete(antiUninstall)
+        return settings.serviceProtectionConfig.isEnabled || tamperLocked
+    }
+
+    /**
+     * True when the system has actually bound the service, not only listed it as enabled. A
+     * service can stay listed after its connection died, which leaves blocking silently off.
+     */
+    fun isAppBlockerBound(context: Context): Boolean {
+        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        val ours = appBlockerComponent(context)
+        return am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { ComponentName.unflattenFromString(it.id) == ours }
+    }
 
     fun isIgnoringBatteryOptimizations(context: Context): Boolean {
         return try {
@@ -73,41 +105,118 @@ object ServiceProtectionManager {
      */
     fun healNow(context: Context) {
         try {
-            if (!canSelfHeal()) return
             reinforceBackgroundExecution(context)
             if (!isAppBlockerEnabled(context)) {
-                reEnableAccessibilityServices(context)
+                restoreAccessibilityService(context)
             }
         } catch (e: Exception) {
             Log.e(TAG, "healNow failed", e)
         }
     }
 
-    /** Adds the Curbox accessibility service back into the secure settings list, via Shizuku. */
-    private fun reEnableAccessibilityServices(context: Context) {
-        val wanted = listOf(
-            ComponentName(context, AppBlockerService::class.java).flattenToString()
-        )
-
-        val current = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        )
-
-        val existing = linkedSetOf<String>()
-        if (!current.isNullOrEmpty()) {
-            val splitter = TextUtils.SimpleStringSplitter(':')
-            splitter.setString(current)
-            while (splitter.hasNext()) existing.add(splitter.next())
+    /**
+     * Adds the Curbox accessibility service back into the secure settings list. Writes the
+     * setting directly when WRITE_SECURE_SETTINGS is held, otherwise goes through Shizuku.
+     * Returns false when neither path is available.
+     */
+    fun restoreAccessibilityService(context: Context): Boolean {
+        val ours = appBlockerComponent(context)
+        val existing = readComponentList(context, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        if (existing.none { ComponentName.unflattenFromString(it) == ours }) {
+            existing.add(ours.flattenToString())
         }
-        existing.addAll(wanted)
-
         val merged = existing.joinToString(":")
+
+        if (PermissionUtils.hasWriteSecureSettings(context)) {
+            try {
+                Settings.Secure.putString(
+                    context.contentResolver,
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                    merged
+                )
+                Settings.Secure.putInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+                Log.i(TAG, "Re enabled accessibility service via secure settings")
+                return true
+            } catch (e: SecurityException) {
+                Log.e(TAG, "WRITE_SECURE_SETTINGS was revoked", e)
+            }
+        }
+        if (!canSelfHeal()) return false
         runShell(
             "settings put secure enabled_accessibility_services '$merged'; " +
                 "settings put secure accessibility_enabled 1"
         )
         Log.i(TAG, "Re enabled accessibility service via Shizuku")
+        return true
+    }
+
+    /**
+     * Turns the service off and on again, the same as the user flipping its switch twice. Used
+     * when the service is listed as enabled but the system no longer has it bound. Blocks the
+     * calling thread for a moment, so never call it on the main thread.
+     */
+    fun restartAccessibilityService(context: Context): Boolean {
+        if (!PermissionUtils.hasWriteSecureSettings(context)) return false
+        val ours = appBlockerComponent(context)
+        return try {
+            val without = readComponentList(context, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+                .filterNot { ComponentName.unflattenFromString(it) == ours }
+            Settings.Secure.putString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                without.joinToString(":")
+            )
+            // Gives the system time to drop the dead connection before binding again.
+            Thread.sleep(900)
+            restoreAccessibilityService(context)
+        } catch (e: Exception) {
+            Log.e(TAG, "restart failed", e)
+            false
+        }
+    }
+
+    /**
+     * Removes Curbox from the accessibility shortcuts (volume keys, the floating button, quick
+     * settings), which can switch the service off without opening Settings.
+     */
+    fun removeFromAccessibilityShortcuts(context: Context) {
+        if (!PermissionUtils.hasWriteSecureSettings(context)) return
+        val ours = appBlockerComponent(context)
+        SHORTCUT_TARGET_KEYS.forEach { key ->
+            try {
+                val targets = readComponentList(context, key)
+                val kept = targets.filterNot { ComponentName.unflattenFromString(it) == ours }
+                if (kept.size != targets.size) {
+                    Settings.Secure.putString(context.contentResolver, key, kept.joinToString(":"))
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to clean shortcut $key", e)
+            }
+        }
+    }
+
+    private val SHORTCUT_TARGET_KEYS = listOf(
+        "accessibility_shortcut_target_service",
+        "accessibility_button_targets",
+        "accessibility_qs_targets",
+        "accessibility_gesture_targets"
+    )
+
+    private fun appBlockerComponent(context: Context): ComponentName =
+        ComponentName(context, AppBlockerService::class.java)
+
+    private fun readComponentList(context: Context, key: String): LinkedHashSet<String> {
+        val current = Settings.Secure.getString(context.contentResolver, key)
+        val existing = linkedSetOf<String>()
+        if (!current.isNullOrEmpty()) {
+            val splitter = TextUtils.SimpleStringSplitter(':')
+            splitter.setString(current)
+            while (splitter.hasNext()) {
+                val entry = splitter.next().trim()
+                if (entry.isNotEmpty()) existing.add(entry)
+            }
+        }
+        return existing
     }
 
     /** Keeps the app out of doze and lets it run freely in the background. Needs Shizuku. */
