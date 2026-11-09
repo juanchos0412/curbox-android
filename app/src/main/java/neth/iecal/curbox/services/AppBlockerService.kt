@@ -1,5 +1,6 @@
 package neth.iecal.curbox.services
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Handler
@@ -50,6 +51,13 @@ class AppBlockerService : BaseBlockingService() {
     private val uiHider = UiHider()
     private val nodePicker = NodePicker()
     private val antiUninstallBlocker = AntiUninstallBlocker()
+    // Starts false to match the flags declared in app_blocker_service_config.xml.
+    private var holdsWindowAccess = false
+
+    private companion object {
+        const val SETTINGS_PACKAGE = "com.android.settings"
+        const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+    }
 
     private var grayScaleFilter = GrayScaleFilter()
 
@@ -106,6 +114,7 @@ class AppBlockerService : BaseBlockingService() {
         super.onAccessibilityEvent(event)
 
         try {
+            updateWindowAccess(event)
             if (BuildConfig.SUPPORTS_ANTI_UNINSTALL) {
                 antiUninstallBlocker.doAntiUninstallCheck(event)
             }
@@ -141,6 +150,33 @@ class AppBlockerService : BaseBlockingService() {
 
     override fun onInterrupt() {
     }
+
+    /**
+     * Banking apps treat a service that can read every window on screen as a remote control risk
+     * and refuse to run. Only the tamper checks in Settings need that, so the flag is held while
+     * Settings is in front and dropped when another app takes over. The keyboard and system UI
+     * open on top of Settings, so they keep the current state.
+     */
+    private fun updateWindowAccess(event: AccessibilityEvent) {
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val packageName = event.packageName?.toString() ?: return
+        if (packageName == SYSTEM_UI_PACKAGE || packageName == currentKeyboardPackage()) return
+
+        val needsAccess = packageName == SETTINGS_PACKAGE
+        if (needsAccess == holdsWindowAccess) return
+        val info = serviceInfo ?: return
+        info.flags = if (needsAccess) {
+            info.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        } else {
+            info.flags and AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS.inv()
+        }
+        serviceInfo = info
+        holdsWindowAccess = needsAccess
+    }
+
+    private fun currentKeyboardPackage(): String? =
+        Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+            ?.substringBefore('/')
 
     private fun scheduleReelSettleRecheck(event: AccessibilityEvent) {
         mainHandler.removeCallbacks(reelSettleRecheck)
