@@ -43,7 +43,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/coolvetica_rg"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="55sp"
+                        android:textSize="@dimen/display_title_text_size"
                         android:textStyle="bold" />
                 </LinearLayout>
             </RelativeLayout>

@@ -17,6 +17,7 @@ import neth.iecal.curbox.databinding.FragmentAdvancedAnalyticsBinding
 import neth.iecal.curbox.databinding.ItemAnalyticsRowBinding
 import neth.iecal.curbox.databinding.ItemAnalyticsStatBinding
 import neth.iecal.curbox.utils.TimeTools
+import neth.iecal.curbox.utils.TvUtils
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -61,7 +62,8 @@ class AdvancedAnalyticsFragment : Fragment() {
         rangeChips.entries.firstOrNull { it.value == viewModel.rangeDays }?.let {
             binding.chipGroupRange.check(it.key)
         }
-        binding.chipGroupRange.setOnCheckedStateChangeListener { _, checkedIds ->
+        binding.chipGroupRange.setOnCheckedStateChangeListener { group, checkedIds ->
+            TvUtils.keepFocusOnCheckedChip(group, checkedIds)
             val days = checkedIds.firstOrNull()?.let { rangeChips[it] } ?: return@setOnCheckedStateChangeListener
             viewModel.load(days)
         }

@@ -1,6 +1,7 @@
 package neth.iecal.curbox.ui.activity
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
 import android.os.Bundle
@@ -31,6 +32,7 @@ import neth.iecal.curbox.R
 import neth.iecal.curbox.databinding.ActivitySelectAppsBinding
 import neth.iecal.curbox.databinding.DialogAddKeywordBinding
 import neth.iecal.curbox.utils.DataStoreManager
+import neth.iecal.curbox.utils.TvUtils
 
 class SelectAppsActivity : AppCompatActivity() {
 
@@ -228,6 +230,18 @@ class SelectAppsActivity : AppCompatActivity() {
                     val displayName = "$appLabel $profileType"
                     appItemList.add(AppItem(appInfo.packageName, appInfo, displayName))
                 }
+            }
+
+            // TV apps may declare only a leanback launcher entry, which LauncherApps does not list.
+            if (TvUtils.isTv(this)) {
+                val leanbackIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+                packageManager.queryIntentActivities(leanbackIntent, 0)
+                    .map { it.activityInfo.applicationInfo }
+                    .filter { !ignoredApps.contains(it.packageName) && installedPackages.add(it.packageName) }
+                    .forEach { appInfo ->
+                        val appLabel = appInfo.loadLabel(packageManager).toString()
+                        appItemList.add(AppItem(appInfo.packageName, appInfo, appLabel))
+                    }
             }
 
             // Add uninstalled apps from selectedAppList that aren't already included

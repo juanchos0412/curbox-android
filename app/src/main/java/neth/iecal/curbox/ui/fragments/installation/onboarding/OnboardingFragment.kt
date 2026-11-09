@@ -10,7 +10,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
+import neth.iecal.curbox.R
 import neth.iecal.curbox.databinding.FragmentOnboardingBinding
+import neth.iecal.curbox.utils.TvUtils
 import neth.iecal.curbox.ui.fragments.installation.onboarding.screens.EmpathyFragment
 import neth.iecal.curbox.ui.fragments.installation.onboarding.screens.ScreenTimeEstimateFragment
 import neth.iecal.curbox.ui.fragments.installation.onboarding.screens.CoreValuesFragment
@@ -58,7 +60,30 @@ class OnboardingFragment : Fragment() {
                 val alpha = (totalProgress % 1.0f) * 0.2f
                 binding.bgOverlay.alpha = alpha
             }
+
+            override fun onPageScrollStateChanged(state: Int) {
+                if (state == ViewPager2.SCROLL_STATE_IDLE) focusCurrentPageOnTv()
+            }
         })
+        if (TvUtils.isTv(requireContext())) {
+            // The pager's inner list is focusable itself and steals remote presses from the page.
+            (binding.viewPager.getChildAt(0) as? ViewGroup)?.apply {
+                isFocusable = false
+                descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            }
+        }
+        binding.viewPager.post { focusCurrentPageOnTv() }
+    }
+
+    // Nothing inside a new page has focus yet, so start the remote on the page's main action.
+    private fun focusCurrentPageOnTv() {
+        if (_binding == null || !TvUtils.isTv(requireContext())) return
+        val page = childFragmentManager.findFragmentByTag("f${binding.viewPager.currentItem}")
+        val pageView = page?.view ?: return
+        // The permissions page disables its action until everything is granted.
+        if (pageView.findViewById<View>(R.id.btn_action)?.requestFocus() != true) {
+            pageView.requestFocus()
+        }
     }
 
     private class BlurFadePageTransformer : ViewPager2.PageTransformer {

@@ -23,6 +23,8 @@ import neth.iecal.curbox.ui.fragments.main.reducers.blockertools.DayItem
 import neth.iecal.curbox.ui.fragments.main.reducers.blockertools.TimeIntervalAdapter
 import neth.iecal.curbox.utils.hasOverlappingTimeRanges
 import neth.iecal.curbox.utils.isAllDaySchedule
+import android.app.Dialog
+import neth.iecal.curbox.utils.TvUtils
 
 abstract class BaseTimeSettingsFragment : BottomSheetDialogFragment() {
 
@@ -64,6 +66,10 @@ abstract class BaseTimeSettingsFragment : BottomSheetDialogFragment() {
         daysListContainer = root.findViewById(R.id.daysListContainer)
         scheduleModeToggle = root.findViewById(R.id.schedule_mode_toggle)
         return root
+    }
+
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        return super.onCreateDialog(savedInstanceState).also { TvUtils.expandBottomSheetOnTv(it) }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

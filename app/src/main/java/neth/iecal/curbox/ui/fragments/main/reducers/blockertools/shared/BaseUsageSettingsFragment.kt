@@ -15,6 +15,7 @@ import neth.iecal.curbox.R
 import neth.iecal.curbox.data.models.AppUsageConfig
 import neth.iecal.curbox.ui.fragments.main.reducers.blockertools.UsageDayItem
 import neth.iecal.curbox.ui.fragments.main.reducers.blockertools.UsageSettingsAdapter
+import neth.iecal.curbox.utils.TvUtils
 
 abstract class BaseUsageSettingsFragment : BottomSheetDialogFragment() {
 
@@ -50,6 +51,7 @@ abstract class BaseUsageSettingsFragment : BottomSheetDialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         return super.onCreateDialog(savedInstanceState).also {
             it.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            TvUtils.expandBottomSheetOnTv(it)
         }
     }
 

@@ -26,6 +26,7 @@ import neth.iecal.curbox.data.models.PomodoroState
 import neth.iecal.curbox.databinding.DialogFocusSessionConfigBinding
 import neth.iecal.curbox.hardcoded.URL_BAR_ID_LIST
 import neth.iecal.curbox.ui.activity.SelectAppsActivity
+import neth.iecal.curbox.utils.TvUtils
 
 class FocusSetupBottomSheet : BottomSheetDialogFragment() {
 
@@ -345,6 +346,7 @@ class FocusSetupBottomSheet : BottomSheetDialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         return super.onCreateDialog(savedInstanceState).apply {
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            TvUtils.expandBottomSheetOnTv(this)
         }
     }
 

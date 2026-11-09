@@ -14,6 +14,7 @@ import neth.iecal.curbox.R
 
 import android.content.Intent
 import neth.iecal.curbox.ui.activity.FragmentActivity
+import neth.iecal.curbox.utils.TvUtils
 import neth.iecal.curbox.utils.ViewUtils
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
@@ -87,8 +88,15 @@ class ReducersFragment : Fragment() {
             startActivity(intent)
         }
 
+        // Matches the screens FragmentActivity refuses to open on TV.
+        val isTv = TvUtils.isTv(requireContext())
+        reelBlockerCard.isVisible = !isTv
+        reelCounterCard.isVisible = !isTv
+        grayscaleCard.isVisible = !isTv
+        autoDndCard.isVisible = !isTv
+
         val uiHiderCard = view.findViewById<MaterialCardView>(R.id.card_ui_hider)
-        uiHiderCard.isVisible = BuildConfig.SUPPORTS_UI_HIDER
+        uiHiderCard.isVisible = BuildConfig.SUPPORTS_UI_HIDER && !isTv
         uiHiderCard.setOnClickListener {
             val intent = Intent(requireContext(), FragmentActivity::class.java).apply {
                 putExtra("fragment", neth.iecal.curbox.ui.fragments.main.reducers.blockertools.uiHider.UiHiderFragment.FRAGMENT_ID)

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Oversized headline used by onboarding and the usage screens. -->
+    <dimen name="display_title_text_size">55sp</dimen>
+</resources>

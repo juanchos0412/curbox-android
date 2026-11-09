@@ -20,6 +20,7 @@ import neth.iecal.curbox.CrashLogger
 import neth.iecal.curbox.R
 import neth.iecal.curbox.utils.DataStoreManager
 import neth.iecal.curbox.utils.ServiceProtectionManager
+import neth.iecal.curbox.utils.TvUtils
 import kotlin.lazy
 
 @SuppressLint("AccessibilityPolicy")
@@ -85,7 +86,10 @@ open class BaseBlockingService : AccessibilityService() {
     }
 
     private fun startForegroundService() {
-        val channelId = "blocking_service_channel"
+        // Fire TV pops a toast over playback for every low importance post, and each service
+        // reconnect posts again, so TV uses a separate minimum importance channel.
+        val isTv = TvUtils.isTv(this)
+        val channelId = if (isTv) "blocking_service_channel_tv" else "blocking_service_channel"
         val channelName = getString(R.string.blocking_service_channel_name)
 
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -93,7 +97,7 @@ open class BaseBlockingService : AccessibilityService() {
         val channel = NotificationChannel(
             channelId,
             channelName,
-            NotificationManager.IMPORTANCE_LOW
+            if (isTv) NotificationManager.IMPORTANCE_MIN else NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = getString(R.string.blocking_service_channel_description)
         }
@@ -104,7 +108,8 @@ open class BaseBlockingService : AccessibilityService() {
             .setContentTitle(getString(R.string.blocking_service_notification_title, className))
             .setContentText(getString(R.string.blocking_service_notification_text))
             .setSmallIcon(R.drawable.icon)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(if (isTv) NotificationCompat.PRIORITY_MIN else NotificationCompat.PRIORITY_HIGH)
+            .setSilent(isTv)
             .setOngoing(true)
             .build()
 

@@ -47,6 +47,7 @@ import neth.iecal.curbox.ui.fragments.main.reducers.blockertools.appBlocker.AppB
 import neth.iecal.curbox.ui.fragments.main.usage.AllAppsUsageFragment
 import neth.iecal.curbox.utils.OnboardingState
 import neth.iecal.curbox.utils.PermissionUtils
+import neth.iecal.curbox.utils.TvUtils
 
 class OnboardingPermissionsFragment : Fragment() {
 
@@ -124,6 +125,10 @@ class OnboardingPermissionsFragment : Fragment() {
 
         binding.overlayPermRoot.setOnClickListener {
             if (Settings.canDrawOverlays(requireContext())) return@setOnClickListener
+            if (TvUtils.isTv(requireContext())) {
+                showTvAdbSetupDialog()
+                return@setOnClickListener
+            }
             showExplanationDialog(
                 title = getString(R.string.onboarding_perm_overlay_title),
                 rationale = getString(R.string.onboarding_perm_overlay_rationale),
@@ -151,6 +156,10 @@ class OnboardingPermissionsFragment : Fragment() {
 
         binding.blockerAccPermRoot.setOnClickListener {
             if (neth.iecal.curbox.utils.PermissionUtils.isAccessibilityServiceEnabled(requireContext(), AppBlockerService::class.java)) return@setOnClickListener
+            if (TvUtils.isTv(requireContext())) {
+                showTvAdbSetupDialog()
+                return@setOnClickListener
+            }
             showExplanationDialog(
                 title = getString(R.string.onboarding_perm_accessibility_title),
                 rationale = getString(R.string.onboarding_perm_accessibility_rationale),
@@ -182,6 +191,12 @@ class OnboardingPermissionsFragment : Fragment() {
 
         setupDescText()
         updatePermissionsState()
+
+        // Permissions granted over ADB arrive without this screen pausing, so recheck whenever
+        // the window regains focus, such as when a dialog closes.
+        view.viewTreeObserver.addOnWindowFocusChangeListener { hasFocus ->
+            if (hasFocus && _binding != null) updatePermissionsState()
+        }
     }
 
     private fun setupRestore() {
@@ -220,7 +235,7 @@ class OnboardingPermissionsFragment : Fragment() {
         val packageMap = mapOf(
             "Instagram" to "com.instagram.android",
             "TikTok" to "com.zhiliaoapp.musically",
-            "YouTube" to "com.google.android.youtube",
+            "YouTube" to youtubePackage(),
             "Reddit" to "com.reddit.frontpage"
         )
         val pkg = packageMap[targetApp] ?: return
@@ -235,6 +250,20 @@ class OnboardingPermissionsFragment : Fragment() {
             isActive = true,
             warningScreenConfig = AppBlockerWarningScreenConfig()
         ))
+    }
+
+    // Fire TV and Android TV ship YouTube under their own package names.
+    private fun youtubePackage(): String {
+        if (!TvUtils.isTv(requireContext())) return "com.google.android.youtube"
+        val tvPackages = listOf("com.amazon.firetv.youtube", "com.google.android.youtube.tv")
+        return tvPackages.firstOrNull { pkg ->
+            try {
+                requireContext().packageManager.getPackageInfo(pkg, 0)
+                true
+            } catch (e: PackageManager.NameNotFoundException) {
+                false
+            }
+        } ?: tvPackages.first()
     }
 
     private fun openMainScreen() {
@@ -296,6 +325,15 @@ class OnboardingPermissionsFragment : Fragment() {
                 rikka.shizuku.Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
             } catch (e: Exception) { e.printStackTrace() }
         }
+    }
+
+    // Fire TV points the overlay and accessibility intents at empty placeholder screens.
+    private fun showTvAdbSetupDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.tv_adb_setup_title)
+            .setMessage(getString(R.string.tv_adb_setup_message, requireContext().packageName))
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun showExplanationDialog(title: String, rationale: String, openSourceExplanation: String, onProceed: () -> Unit) {

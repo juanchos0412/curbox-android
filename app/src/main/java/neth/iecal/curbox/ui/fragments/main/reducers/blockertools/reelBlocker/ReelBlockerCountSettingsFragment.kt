@@ -11,6 +11,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import neth.iecal.curbox.data.models.ReelCountConfig
 import neth.iecal.curbox.databinding.FragmentReelBlockerCountSettingsBinding
 import neth.iecal.curbox.databinding.ItemDayCountLimitBinding
+import neth.iecal.curbox.utils.TvUtils
 
 class ReelBlockerCountSettingsFragment : BottomSheetDialogFragment() {
 
@@ -111,6 +112,7 @@ class ReelBlockerCountSettingsFragment : BottomSheetDialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val dialog = super.onCreateDialog(savedInstanceState)
         dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        TvUtils.expandBottomSheetOnTv(dialog)
         return dialog
     }
 

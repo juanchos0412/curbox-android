@@ -52,4 +52,8 @@ val URL_BAR_ID_LIST = mapOf(
     "io.github.jqssun.helium" to BrowserUrlBarInfo(
         displayUrlBarId = "io.github.jqssun.helium:id/url_bar",
     ),
+    // Silk on Fire TV. The nav bar shows the host only, not the full URL.
+    "com.amazon.cloud9" to BrowserUrlBarInfo(
+        displayUrlBarId = "com.amazon.cloud9:id/nav_bar_search_animated_button",
+    ),
 )

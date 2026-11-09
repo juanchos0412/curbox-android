@@ -195,9 +195,12 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- The days field sits inside this card, so a remote's down key never finds it
+                 without pointing there explicitly. -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_mode_timed"
                 android:layout_width="match_parent"
+                android:nextFocusDown="@id/input_days"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 app:cardBackgroundColor="?attr/colorSurfaceContainer"

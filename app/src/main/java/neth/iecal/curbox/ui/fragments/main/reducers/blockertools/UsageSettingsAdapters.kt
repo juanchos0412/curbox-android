@@ -52,10 +52,15 @@ class UsageSettingsAdapter(
             binding.root.setOnClickListener {
                 onDisabledClick()
             }
+            binding.root.isFocusable = true
         } else {
             binding.daySwitch.isEnabled = true
             binding.root.alpha = 1.0f
             binding.root.setOnClickListener(null)
+            // setOnClickListener leaves the row clickable even with a null listener, which makes
+            // the row take remote focus instead of its switch and time fields.
+            binding.root.isClickable = false
+            binding.root.isFocusable = false
         }
 
         binding.hoursInput.setText(if (item.hours > 0) item.hours.toString() else "")

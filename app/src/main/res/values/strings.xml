@@ -1800,6 +1800,9 @@
     <string name="onboarding_error_tap_retry">Error, Tap to Retry</string>
     <string name="onboarding_curb_me">Curb me!</string>
     <string name="onboarding_need_more_permissions">I still need more permissions</string>
+    <string name="tv_adb_setup_title">Set up with ADB</string>
+    <string name="anti_uninstall_tv_admin_message">Your TV has no screen to turn on device admin. With ADB debugging on, run this from a computer on the same network, then press the button again:\n\nadb shell dpm set-active-admin --user 0 %1$s</string>
+    <string name="tv_adb_setup_message">Your TV has no settings screen for this permission. Turn on ADB debugging in Developer options, then run this from a computer on the same network:\n\ntools/firetv/setup.sh &lt;TV IP&gt;:5555 %1$s\n\nCome back to this screen once it finishes.</string>
     <string name="screen_time_hours">%1$d hrs</string>
     <string name="screen_time_reality">That is %1$d full weeks of your life staring at a screen per year.</string>
 
@@ -1939,6 +1942,13 @@
     <string name="keyword_import_failed">Failed to import keywords</string>
     <string name="keyword_export_success">Keywords exported successfully</string>
     <string name="keyword_export_failed">Failed to export keywords</string>
+    <string name="import_keywords_from_url">Import from URL</string>
+    <string name="keyword_import_url_title">Import from URL</string>
+    <string name="keyword_import_url_message">Link to a plain text file with one keyword or website per line.</string>
+    <string name="keyword_import_url_hint">https://example.com/list.txt</string>
+    <string name="keyword_import_url_invalid">Enter a link that starts with http:// or https://</string>
+    <string name="keyword_import_url_downloading">Downloading list…</string>
+    <string name="keyword_import_no_picker">This device has no file picker</string>
     <string name="keyword_add_at_least_one">Add at least one keyword</string>
 
     <!-- Settings toasts -->

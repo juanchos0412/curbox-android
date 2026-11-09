@@ -15,7 +15,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <HorizontalScrollView
+            <neth.iecal.curbox.ui.views.DecorativeHorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:overScrollMode="never"
@@ -30,11 +30,12 @@
                     android:ellipsize="none"
                     android:fontFamily="monospace"
                     android:inputType="textMultiLine"
+                    android:focusable="false"
                     android:lineSpacingMultiplier="0.85"
                     android:singleLine="false"
                     android:text="@string/ascii_star2"
                     android:textSize="7sp" />
-            </HorizontalScrollView>
+            </neth.iecal.curbox.ui.views.DecorativeHorizontalScrollView>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -79,7 +80,7 @@
                             android:layout_height="wrap_content"
                             android:fontFamily="@font/coolvetica_rg"
                             android:textColor="?attr/colorOnSurface"
-                            android:textSize="55sp"
+                            android:textSize="@dimen/display_title_text_size"
                             android:textStyle="bold" />
 
                     </LinearLayout>

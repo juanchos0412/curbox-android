@@ -4,12 +4,14 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import neth.iecal.curbox.databinding.FragmentTargetSelectionBinding
 import neth.iecal.curbox.R
 import neth.iecal.curbox.ui.fragments.installation.onboarding.OnboardingFragment
 import neth.iecal.curbox.ui.fragments.installation.onboarding.OnboardingViewModel
+import neth.iecal.curbox.utils.TvUtils
 
 class TargetSelectionFragment : Fragment() {
 
@@ -29,10 +31,16 @@ class TargetSelectionFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        viewModel.setTargetApp("Instagram")
+        // Instagram and TikTok have no TV apps, so TV starts on YouTube.
+        val isTv = TvUtils.isTv(requireContext())
+        binding.chipInstagram.isVisible = !isTv
+        binding.chipTiktok.isVisible = !isTv
+        if (isTv) binding.chipYoutube.isChecked = true
+        viewModel.setTargetApp(if (isTv) "YouTube" else "Instagram")
         viewModel.setDailyLimit(30L)
 
-        binding.targetChipGroup.setOnCheckedStateChangeListener { _, checkedIds ->
+        binding.targetChipGroup.setOnCheckedStateChangeListener { group, checkedIds ->
+            TvUtils.keepFocusOnCheckedChip(group, checkedIds)
             if (checkedIds.isEmpty()) return@setOnCheckedStateChangeListener
             val target = when (checkedIds.first()) {
                 R.id.chip_instagram -> "Instagram"
@@ -45,7 +53,8 @@ class TargetSelectionFragment : Fragment() {
             viewModel.setTargetApp(target)
         }
 
-        binding.limitChipGroup.setOnCheckedStateChangeListener { _, checkedIds ->
+        binding.limitChipGroup.setOnCheckedStateChangeListener { group, checkedIds ->
+            TvUtils.keepFocusOnCheckedChip(group, checkedIds)
             if (checkedIds.isEmpty()) return@setOnCheckedStateChangeListener
             val limit = when (checkedIds.first()) {
                 R.id.chip_15m -> 15L

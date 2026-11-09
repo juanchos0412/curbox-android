@@ -1,3 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Sync removed; flavor now offline. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<!-- Sync removed. INTERNET is only used to import keyword lists from a URL
+     the user types in (SUPPORTS_URL_IMPORT). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

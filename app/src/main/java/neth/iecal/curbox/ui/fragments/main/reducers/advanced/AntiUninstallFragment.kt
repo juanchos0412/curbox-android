@@ -32,6 +32,7 @@ import neth.iecal.curbox.services.ProtectionGuardService
 import neth.iecal.curbox.utils.AntiUninstallManager
 import neth.iecal.curbox.utils.DataStoreManager
 import neth.iecal.curbox.utils.ServiceProtectionManager
+import neth.iecal.curbox.utils.TvUtils
 import neth.iecal.curbox.utils.ViewUtils
 import java.util.concurrent.TimeUnit
 
@@ -253,6 +254,16 @@ class AntiUninstallFragment : Fragment() {
     private fun requestAdminThenEnable() {
         if (AntiUninstallManager.isAdminActive(requireContext())) {
             enableProtection()
+            return
+        }
+        // Fire TV points the add device admin intent at an empty placeholder screen.
+        if (TvUtils.isTv(requireContext())) {
+            val admin = AntiUninstallManager.adminComponent(requireContext()).flattenToShortString()
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.tv_adb_setup_title)
+                .setMessage(getString(R.string.anti_uninstall_tv_admin_message, admin))
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
             return
         }
         val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {

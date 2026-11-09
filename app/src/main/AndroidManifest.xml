@@ -15,6 +15,13 @@
     <uses-feature
         android:name="android.hardware.nfc"
         android:required="false" />
+    <!-- Lets the app install and launch on Android TV and Fire TV. -->
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -26,6 +33,7 @@
     <application
         android:name=".Curbox"
         android:allowBackup="true"
+        android:banner="@drawable/tv_banner"
         android:hardwareAccelerated="true"
         android:icon="@drawable/logo"
         android:label="@string/app_name"
@@ -57,6 +65,7 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

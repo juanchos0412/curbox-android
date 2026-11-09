@@ -4,6 +4,9 @@
         android:id="@+id/action_import"
         android:title="@string/import_keywords" />
     <item
+        android:id="@+id/action_import_url"
+        android:title="@string/import_keywords_from_url" />
+    <item
         android:id="@+id/action_export"
         android:title="@string/export_keywords" />
     <item

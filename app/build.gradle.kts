@@ -73,6 +73,8 @@ android {
         // Holds WRITE_SECURE_SETTINGS (granted once via Shizuku) so grayscale can
         // flip secure settings directly instead of shelling out per toggle.
         buildConfigField("Boolean", "SUPPORTS_WRITE_SECURE_SETTINGS", "true")
+        // Downloading keyword lists needs INTERNET, which only the full flavor declares.
+        buildConfigField("Boolean", "SUPPORTS_URL_IMPORT", "false")
     }
 
     productFlavors {
@@ -83,11 +85,13 @@ android {
             buildConfigField("Boolean", "FDROID_VARIANT", "true")
         }
 
-        // Fully offline.
+        // Offline except for importing keyword lists from a URL, which TVs need
+        // because they ship no file picker.
         create("full") {
             dimension = "version"
             versionNameSuffix = "-full"
             buildConfigField("Boolean", "FDROID_VARIANT", "true")
+            buildConfigField("Boolean", "SUPPORTS_URL_IMPORT", "true")
         }
 
         // Play Store policy build: offline, strips the UI hider and anti

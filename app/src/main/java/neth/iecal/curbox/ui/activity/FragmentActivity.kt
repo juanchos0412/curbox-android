@@ -37,6 +37,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import neth.iecal.curbox.utils.BlurFadeAnimator
+import neth.iecal.curbox.utils.TvUtils
 
 class FragmentActivity : AppCompatActivity() {
 
@@ -58,7 +59,7 @@ class FragmentActivity : AppCompatActivity() {
                 (selectedFragment == UiHiderFragment.FRAGMENT_ID || selectedFragment == UiHiderEditorFragment.FRAGMENT_ID)) ||
             (!neth.iecal.curbox.BuildConfig.SUPPORTS_ANTI_UNINSTALL &&
                 selectedFragment == AntiUninstallFragment.FRAGMENT_ID)
-        if (strippedFromFlavor) {
+        if (strippedFromFlavor || isUnsupportedOnTv(selectedFragment)) {
             finish()
             return
         }
@@ -69,7 +70,8 @@ class FragmentActivity : AppCompatActivity() {
         maybeShowTermsConsent()
         maybeShowWhatsNew()
 
-        val bottomNav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_nav)
+        // A bottom bar on phones, a side rail on TV (layout-television).
+        val bottomNav = findViewById<com.google.android.material.navigation.NavigationBarView>(R.id.bottom_nav)
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -170,6 +172,22 @@ class FragmentActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    // TV has no reels apps, no touch to pick UI elements, and no use for grayscale or
+    // do not disturb, so these screens stay unreachable there.
+    private fun isUnsupportedOnTv(selectedFragment: String): Boolean {
+        if (!TvUtils.isTv(this)) return false
+        return selectedFragment in setOf(
+            ReelBlockerFragment.FRAGMENT_ID,
+            neth.iecal.curbox.ui.fragments.main.reducers.anti_stimulants.reel_counter.ReelCounterFragment.FRAGMENT_ID,
+            UiHiderFragment.FRAGMENT_ID,
+            UiHiderEditorFragment.FRAGMENT_ID,
+            GrayscaleFragment.FRAGMENT_ID,
+            CreateGrayscaleGroupFragment.FRAGMENT_ID,
+            AutoDndFragment.FRAGMENT_ID,
+            CreateAutoDndGroupFragment.FRAGMENT_ID,
+        )
     }
 
     private fun maybeShowTermsConsent() {

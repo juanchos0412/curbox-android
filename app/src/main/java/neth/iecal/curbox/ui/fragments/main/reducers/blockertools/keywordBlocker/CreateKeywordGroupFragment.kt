@@ -1,8 +1,10 @@
 package neth.iecal.curbox.ui.fragments.main.reducers.blockertools.keywordBlocker
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +15,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -20,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import neth.iecal.curbox.CrashLogger
 import kotlinx.coroutines.withContext
+import neth.iecal.curbox.BuildConfig
 import neth.iecal.curbox.R
 import neth.iecal.curbox.data.models.AppBlockerWarningScreenConfig
 import neth.iecal.curbox.data.models.KeywordGroup
@@ -28,8 +34,11 @@ import neth.iecal.curbox.databinding.FragmentCreateKeywordGroupBinding
 import neth.iecal.curbox.utils.KeywordFileCodec
 import java.io.BufferedReader
 import java.io.BufferedWriter
+import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.*
 
 class CreateKeywordGroupFragment : Fragment() {
@@ -38,6 +47,7 @@ class CreateKeywordGroupFragment : Fragment() {
         const val FRAGMENT_ID = "create_keyword_group"
         private const val FILE_BUFFER_SIZE = 64 * 1024
         private const val KEYWORD_LIST_URL = "https://github.com/curbox-app/website_packs"
+        private const val URL_TIMEOUT_MS = 20_000
     }
 
     private var _binding: FragmentCreateKeywordGroupBinding? = null
@@ -157,20 +167,42 @@ class CreateKeywordGroupFragment : Fragment() {
         if (existingGroupId == null) {
             popup.menu.findItem(R.id.action_delete)?.isVisible = false
         }
+        popup.menu.findItem(R.id.action_import_url)?.isVisible = BuildConfig.SUPPORTS_URL_IMPORT
 
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_import -> {
-                    importLauncher.launch("text/plain")
+                    try {
+                        importLauncher.launch("text/plain")
+                    } catch (e: ActivityNotFoundException) {
+                        // TVs ship no file picker, so fall back to a link when this build can fetch one.
+                        if (BuildConfig.SUPPORTS_URL_IMPORT) {
+                            showImportFromUrlDialog()
+                        } else {
+                            Toast.makeText(requireContext(), R.string.keyword_import_no_picker, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    true
+                }
+                R.id.action_import_url -> {
+                    showImportFromUrlDialog()
                     true
                 }
                 R.id.action_export -> {
                     val fileName = "keywords_${binding.etGroupName.text.toString().ifEmpty { "group" }}.txt"
-                    exportLauncher.launch(fileName)
+                    try {
+                        exportLauncher.launch(fileName)
+                    } catch (e: ActivityNotFoundException) {
+                        Toast.makeText(requireContext(), R.string.keyword_export_failed, Toast.LENGTH_SHORT).show()
+                    }
                     true
                 }
                 R.id.action_download -> {
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(KEYWORD_LIST_URL)))
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(KEYWORD_LIST_URL)))
+                    } catch (e: ActivityNotFoundException) {
+                        Toast.makeText(requireContext(), KEYWORD_LIST_URL, Toast.LENGTH_LONG).show()
+                    }
                     true
                 }
                 R.id.action_delete -> {
@@ -186,19 +218,68 @@ class CreateKeywordGroupFragment : Fragment() {
         popup.show()
     }
 
+    private fun showImportFromUrlDialog() {
+        val inputLayout = TextInputLayout(requireContext()).apply {
+            hint = getString(R.string.keyword_import_url_hint)
+            setPadding(48, 16, 48, 0)
+        }
+        val input = TextInputEditText(inputLayout.context).apply {
+            inputType = InputType.TYPE_TEXT_VARIATION_URI
+            isSingleLine = true
+        }
+        inputLayout.addView(input)
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.keyword_import_url_title)
+            .setMessage(R.string.keyword_import_url_message)
+            .setView(inputLayout)
+            .setPositiveButton(R.string.import_keywords) { _, _ ->
+                val url = input.text.toString().trim()
+                if (url.startsWith("https://") || url.startsWith("http://")) {
+                    Toast.makeText(requireContext(), R.string.keyword_import_url_downloading, Toast.LENGTH_SHORT).show()
+                    importKeywordsFromUrl(url)
+                } else {
+                    Toast.makeText(requireContext(), R.string.keyword_import_url_invalid, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun importKeywordsFromUrl(url: String) {
+        importKeywords {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.connectTimeout = URL_TIMEOUT_MS
+            connection.readTimeout = URL_TIMEOUT_MS
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                connection.disconnect()
+                throw IllegalStateException("HTTP ${connection.responseCode} for keyword list")
+            }
+            connection.inputStream
+        }
+    }
+
     private fun importKeywordsFromFile(uri: Uri) {
+        importKeywords {
+            requireContext().contentResolver.openInputStream(uri)
+                ?: throw IllegalStateException("Unable to open keyword file")
+        }
+    }
+
+    /** Reads one keyword per line from [openStream] on the IO dispatcher and adds the new ones. */
+    private fun importKeywords(openStream: () -> InputStream) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val existingKeywords = selectedKeywords.toHashSet()
                 val newKeywords = withContext(Dispatchers.IO) {
-                    requireContext().contentResolver.openInputStream(uri)?.use { inputStream ->
+                    openStream().use { inputStream ->
                         BufferedReader(
                             InputStreamReader(inputStream, Charsets.UTF_8),
                             FILE_BUFFER_SIZE
                         ).use { reader ->
                             KeywordFileCodec.readNewKeywords(reader, existingKeywords)
                         }
-                    } ?: throw IllegalStateException("Unable to open keyword file")
+                    }
                 }
 
                 val addedCount = newKeywords.count { selectedKeywords.add(it) }

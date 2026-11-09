@@ -22,6 +22,7 @@ import neth.iecal.curbox.R
 import neth.iecal.curbox.data.models.PendingSettingsChange
 import neth.iecal.curbox.utils.DataStoreManager
 import neth.iecal.curbox.utils.SettingsChangeDelayUtils
+import neth.iecal.curbox.utils.TvUtils
 import neth.iecal.curbox.utils.ViewUtils
 
 /**
@@ -105,7 +106,8 @@ class SettingsChangeDelayFragment : Fragment() {
                 requireTamperProtectionOff
             )
         }
-        chipsDelay.setOnCheckedStateChangeListener { _, checkedIds ->
+        chipsDelay.setOnCheckedStateChangeListener { group, checkedIds ->
+            TvUtils.keepFocusOnCheckedChip(group, checkedIds)
             if (isRendering) return@setOnCheckedStateChangeListener
             val minutes = checkedIds.firstOrNull()?.let { chipMinutes[it] } ?: return@setOnCheckedStateChangeListener
             if (minutes != delayMinutes) {

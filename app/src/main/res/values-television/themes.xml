@@ -1,0 +1,17 @@
+<resources>
+    <style name="Theme.Curbox" parent="Base.Theme.Curbox">
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Curbox.TvAlertDialog</item>
+    </style>
+
+    <!-- Dialogs are separate windows the focus ring does not reach, so their buttons fill on focus instead. -->
+    <style name="ThemeOverlay.Curbox.TvAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Curbox.TvDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Curbox.TvDialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Curbox.TvDialogButton</item>
+    </style>
+
+    <style name="Widget.Curbox.TvDialogButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="backgroundTint">@color/tv_dialog_button_background</item>
+        <item name="android:textColor">@color/tv_dialog_button_text</item>
+    </style>
+</resources>

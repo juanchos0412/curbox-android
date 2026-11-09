@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="?attr/colorSurface">
 
-    <HorizontalScrollView
+    <neth.iecal.curbox.ui.views.DecorativeHorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:overScrollMode="never"
@@ -22,11 +22,12 @@
             android:ellipsize="none"
             android:fontFamily="monospace"
             android:inputType="textMultiLine"
+            android:focusable="false"
             android:lineSpacingMultiplier="0.85"
             android:singleLine="false"
             android:text="@string/ascii_key"
             android:textSize="11sp" />
-    </HorizontalScrollView>
+    </neth.iecal.curbox.ui.views.DecorativeHorizontalScrollView>
 
     <ScrollView
         android:layout_width="match_parent"
